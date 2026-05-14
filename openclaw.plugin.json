@@ -1,0 +1,45 @@
+{
+  "id": "watchline",
+  "name": "Watchline",
+  "description": "Register Watchline watches and deliver matched events into OpenClaw.",
+  "contracts": {
+    "tools": [
+      "start_watch",
+      "continue_watch",
+      "list_watches",
+      "pause_watch",
+      "resume_watch",
+      "delete_watch"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "description": "Watchline project API key."
+      },
+      "channelId": {
+        "type": "string",
+        "description": "Watchline pull channel ID."
+      },
+      "sessionKey": {
+        "type": "string",
+        "description": "OpenClaw session key to receive proactive Watchline events."
+      },
+      "apiBaseUrl": {
+        "type": "string",
+        "description": "Watchline API base URL."
+      },
+      "userId": {
+        "type": "string",
+        "description": "Default Watchline user_id for personal OpenClaw watches."
+      },
+      "pollIntervalSeconds": {
+        "type": "number",
+        "description": "Seconds between pull-delivery polls."
+      }
+    }
+  }
+}
