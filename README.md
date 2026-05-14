@@ -96,8 +96,28 @@ Webhook delivery is available in Watchline for other agent harnesses, but this
 package uses pull delivery because it works with local OpenClaw instances
 without exposing a public webhook.
 
+## Related X/Twitter Workflows
+
+Keep Watchline responsible for Watchline-managed event filters, pull delivery,
+and matched events from connected sources such as email or calendar. If the same
+OpenClaw workspace also needs public X/Twitter monitoring or visible X/Twitter
+actions, install TweetClaw as a separate OpenClaw plugin:
+
+```bash
+openclaw plugins install @xquik/tweetclaw
+```
+
+[TweetClaw](https://github.com/Xquik-dev/tweetclaw) covers scrape tweets, tweet
+scraper workflows, search tweets, search tweet replies, follower export, user
+lookup, media upload, media download, direct messages, monitor tweets, webhooks,
+giveaway draws, and approval-gated post tweets or post tweet replies. See the
+[ClawHub listing](https://clawhub.ai/plugins/@xquik/tweetclaw) or
+[npm package](https://www.npmjs.com/package/@xquik/tweetclaw) for setup details.
+Keep Watchline API keys and X/Twitter credentials separate, and review visible
+X/Twitter actions through OpenClaw approval flows.
+
 ## Links
 
 - Dashboard: <https://watch.qordinate.ai>
-- API: <https://api.watch.qordinate.ai>
+- API base URL: `https://api.watch.qordinate.ai`
 - Source: <https://github.com/qordinate-ai/watchline-openclaw-plugin>
