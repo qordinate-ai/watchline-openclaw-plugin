@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+
 import { tryNormalizeConfig } from "./config.js";
 import type { WatchlineOpenClawConfig } from "./config.js";
 import {
@@ -11,7 +15,6 @@ import {
   type OpenClawPluginApiLike,
   type OpenClawService,
 } from "./openclaw-types.js";
-import { registerTools } from "./tools.js";
 
 const configSchema = {
   parse: (value: unknown) => (isRecord(value) ? value : {}),
@@ -56,10 +59,9 @@ const watchlinePlugin = {
   id: "watchline",
   name: "Watchline",
   description:
-    "Register Watchline watches and deliver matched events into OpenClaw.",
+    "Deliver matched Watchline events into OpenClaw from a local pull channel.",
   configSchema,
   register(api: OpenClawPluginApiLike) {
-    registerTools(api);
     registerCli(api);
     api.registerService?.(createDeliveryService(api));
     api.logger.info("[watchline] plugin loaded.");
@@ -185,6 +187,20 @@ function registerCli(api: OpenClawPluginApiLike): void {
           console.log(`  channelId: ${result.config.channelId}`);
           console.log(`  userId:    ${result.config.userId}`);
           console.log(`  sessionKey: ${result.config.sessionKey ?? ""}`);
+          console.log("");
+          console.log("Hosted MCP command for watch tools:");
+          console.log(mcpSetCommand(result.config));
+        });
+
+      command
+        .command("install-mcp")
+        .description("Configure OpenClaw's hosted Watchline MCP server")
+        .action(() => {
+          const result = tryNormalizeConfig(api.pluginConfig);
+          if (!result.ok) {
+            throw new Error(`Watchline is not configured: ${result.error}`);
+          }
+          installMcpServer(result.config);
         });
 
       command
@@ -219,8 +235,85 @@ function registerCli(api: OpenClawPluginApiLike): void {
   );
 }
 
+function installMcpServer(config: WatchlineOpenClawConfig): void {
+  const configPath = resolveOpenClawConfigPath();
+  const existingConfig = readOpenClawConfig(configPath);
+  const openClawConfig = existingConfig.config;
+  openClawConfig.mcp = {
+    ...asRecord(openClawConfig.mcp),
+    servers: {
+      ...asRecord(asRecord(openClawConfig.mcp).servers),
+      watchline: mcpServerConfig(config),
+    },
+  };
+  mkdirSync(dirname(configPath), { recursive: true });
+  if (existingConfig.raw) {
+    writeFileSync(`${configPath}.watchline-mcp.bak`, existingConfig.raw, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  }
+  writeFileSync(configPath, `${JSON.stringify(openClawConfig, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  console.log(`Saved Watchline MCP server to ${configPath}.`);
+  console.log("Restart OpenClaw gateway to load the MCP server:");
+  console.log("  openclaw gateway restart");
+}
+
+function resolveOpenClawConfigPath(): string {
+  if (process.env.OPENCLAW_CONFIG_PATH) return process.env.OPENCLAW_CONFIG_PATH;
+  if (process.env.OPENCLAW_STATE_DIR) {
+    return join(process.env.OPENCLAW_STATE_DIR, "openclaw.json");
+  }
+  return join(homedir(), ".openclaw", "openclaw.json");
+}
+
+function readOpenClawConfig(configPath: string): {
+  config: Record<string, unknown>;
+  raw?: string;
+} {
+  if (!existsSync(configPath)) return { config: {} };
+  const raw = readFileSync(configPath, "utf8");
+  return {
+    config: JSON.parse(raw) as Record<string, unknown>,
+    raw,
+  };
+}
+
+function mcpSetCommand(config: WatchlineOpenClawConfig): string {
+  return `openclaw mcp set watchline '${JSON.stringify(mcpServerConfig(config))}'`;
+}
+
+function mcpServerConfig(config: WatchlineOpenClawConfig): {
+  transport: "streamable-http";
+  url: string;
+  headers: {
+    Authorization: string;
+    "x-watchline-channel-id": string;
+    "x-watchline-user-id": string;
+  };
+} {
+  const baseUrl = config.apiBaseUrl ?? "https://api.watch.qordinate.ai";
+  const url = new URL("/v1/mcp", baseUrl);
+  return {
+    transport: "streamable-http",
+    url: url.toString(),
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "x-watchline-channel-id": config.channelId,
+      "x-watchline-user-id": config.userId,
+    },
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }
 
 interface CommandLike {

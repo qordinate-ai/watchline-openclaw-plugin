@@ -1,17 +1,7 @@
 {
   "id": "watchline",
   "name": "Watchline",
-  "description": "Register Watchline watches and deliver matched events into OpenClaw.",
-  "contracts": {
-    "tools": [
-      "start_watch",
-      "continue_watch",
-      "list_watches",
-      "pause_watch",
-      "resume_watch",
-      "delete_watch"
-    ]
-  },
+  "description": "Deliver matched Watchline events into OpenClaw from a local pull channel.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

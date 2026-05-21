@@ -1,7 +1,7 @@
 {
   "name": "@watchline/openclaw-plugin",
-  "version": "0.1.2",
-  "description": "OpenClaw plugin for registering Watchline event watches and receiving matched events.",
+  "version": "0.1.4",
+  "description": "OpenClaw delivery adapter for receiving matched Watchline events.",
   "private": false,
   "type": "module",
   "license": "MIT",

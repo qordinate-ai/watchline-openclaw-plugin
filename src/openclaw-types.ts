@@ -7,27 +7,9 @@ interface OpenClawLogger {
   error: (message: string) => void;
 }
 
-export interface OpenClawToolResult {
-  content: { type: "text"; text: string }[];
-  details?: unknown;
-}
-
-interface OpenClawTool {
-  name: string;
-  label?: string;
-  description: string;
-  parameters: Record<string, unknown>;
-  execute: (
-    toolCallId: string,
-    params: unknown,
-    signal?: AbortSignal,
-  ) => Promise<OpenClawToolResult>;
-}
-
 export interface OpenClawPluginApiLike {
   logger: OpenClawLogger;
   pluginConfig?: unknown;
-  registerTool: (tool: OpenClawTool, options?: unknown) => void;
   registerCli?: (
     registrar: (input: { program: unknown }) => void,
     options?: { commands?: string[] },
@@ -65,13 +47,6 @@ interface OpenClawServiceContext {
   stateDir: string;
   workspaceDir?: string;
   logger: OpenClawLogger;
-}
-
-export function toolJsonResult(payload: unknown): OpenClawToolResult {
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    details: payload,
-  };
 }
 
 export function deliveryMetadata(
