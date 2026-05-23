@@ -4,6 +4,8 @@ Watchline is an event layer for agents. This plugin delivers matching
 Watchline events back into a local OpenClaw workspace without exposing your
 laptop to the internet.
 
+![Watchline OpenClaw delivery flow](https://watch.qordinate.ai/images/docs/watchline-openclaw.png)
+
 Use it when you want an OpenClaw agent to say things like:
 
 - "Watch for emails from my boss."
