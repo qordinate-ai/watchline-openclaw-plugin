@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import {
-  buildJsonPluginConfigSchema,
-  definePluginEntry,
-  type OpenClawPluginApi,
-  type OpenClawPluginService,
-} from "openclaw/plugin-sdk/plugin-entry";
+// OpenClaw provides this type at runtime/plugin load time; keep it type-only so
+// the published plugin does not depend on the full OpenClaw npm package.
+// @ts-expect-error - OpenClaw is intentionally not a package dependency.
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 import { tryNormalizeConfig } from "./config.js";
 import type { WatchlineOpenClawConfig } from "./config.js";
@@ -16,60 +15,66 @@ import {
   formatDeliveryForOpenClaw,
   pollDeliveriesOnce,
 } from "./delivery.js";
-import type { DeliveryTarget } from "./delivery.js";
+import type { DeliveryLogger, DeliveryTarget } from "./delivery.js";
 
-const configSchema = buildJsonPluginConfigSchema({
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    apiKey: {
-      type: "string",
-      description: "Watchline project API key.",
-    },
-    channelId: {
-      type: "string",
-      description: "Watchline pull channel ID.",
-    },
-    sessionKey: {
-      type: "string",
-      description:
-        "Optional OpenClaw session key override for proactive Watchline events. Defaults to the main session.",
-    },
-    apiBaseUrl: {
-      type: "string",
-      description: "Watchline API base URL.",
-    },
-    userId: {
-      type: "string",
-      description: "Default Watchline user_id for personal OpenClaw watches.",
-    },
-    pollIntervalSeconds: {
-      type: "number",
-      description: "Seconds between pull-delivery polls.",
+const configSchema = {
+  safeParse: (value: unknown) => ({
+    success: true,
+    data: isRecord(value) ? value : {},
+  }),
+  jsonSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      apiKey: {
+        type: "string",
+        description: "Watchline project API key.",
+      },
+      channelId: {
+        type: "string",
+        description: "Watchline pull channel ID.",
+      },
+      sessionKey: {
+        type: "string",
+        description:
+          "Optional OpenClaw session key override for proactive Watchline events. Defaults to the main session.",
+      },
+      apiBaseUrl: {
+        type: "string",
+        description: "Watchline API base URL.",
+      },
+      userId: {
+        type: "string",
+        description: "Default Watchline user_id for personal OpenClaw watches.",
+      },
+      pollIntervalSeconds: {
+        type: "number",
+        description: "Seconds between pull-delivery polls.",
+      },
     },
   },
-});
+};
 
-const watchlinePlugin = definePluginEntry({
+const watchlinePlugin = {
   id: "watchline",
   name: "Watchline",
   description:
     "Deliver matched Watchline events into OpenClaw from a local pull channel.",
   configSchema,
-  register(api) {
+  register(api: OpenClawPluginApi) {
     registerCli(api);
     api.registerService(createDeliveryService(api));
     api.logger.info("[watchline] plugin loaded.");
   },
-});
+};
 
-function createDeliveryService(api: OpenClawPluginApi): OpenClawPluginService {
+function createDeliveryService(api: OpenClawPluginApi) {
   let timeout: NodeJS.Timeout | undefined;
   let stopped = false;
 
   return {
     id: "watchline-delivery",
-    start(ctx) {
+    start(ctx: { logger: DeliveryLogger }) {
       stopped = false;
       const configResult = tryNormalizeConfig(api.pluginConfig);
       if (!configResult.ok) {
@@ -140,7 +145,7 @@ function createOpenClawDeliveryTarget(
 
 function registerCli(api: OpenClawPluginApi): void {
   api.registerCli(
-    ({ program }) => {
+    ({ program }: { program: unknown }) => {
       const command = asCommander(program)
         .command("watchline")
         .description("Watchline plugin utilities");

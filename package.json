@@ -1,6 +1,6 @@
 {
   "name": "@watchline/openclaw-plugin",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "OpenClaw delivery adapter for receiving matched Watchline events.",
   "private": false,
   "type": "module",
@@ -43,11 +43,9 @@
   "dependencies": {
     "@watchline/sdk-js": "^0.1.0"
   },
-  "peerDependencies": {
-    "openclaw": ">=2026.5.20"
-  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm clean && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
@@ -60,7 +58,6 @@
     "@types/node": "^25.7.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
-    "openclaw": "^2026.5.20",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
