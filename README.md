@@ -51,7 +51,6 @@ openclaw config patch --stdin <<'JSON5'
           channelId: "ch_...",
           apiBaseUrl: "https://api.watch.qordinate.ai",
           userId: "me",
-          sessionKey: "watchline:ch_...",
           pollIntervalSeconds: 15
         }
       }
@@ -88,14 +87,14 @@ openclaw gateway restart
 
 ## Configuration
 
-| Field                 | Required | Description                                                                |
-| --------------------- | -------- | -------------------------------------------------------------------------- |
-| `apiKey`              | Yes      | Watchline project API key.                                                 |
-| `channelId`           | Yes      | Watchline pull channel ID.                                                 |
-| `apiBaseUrl`          | No       | Watchline API base URL. Defaults to production.                            |
-| `userId`              | No       | Stable user ID for MCP setup examples. Personal installs usually use `me`. |
-| `sessionKey`          | Yes      | Stable OpenClaw delivery session key for matched events.                   |
-| `pollIntervalSeconds` | No       | Delivery polling interval. Minimum is 5 seconds.                           |
+| Field                 | Required | Description                                                                                                                                                     |
+| --------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`              | Yes      | Watchline project API key.                                                                                                                                      |
+| `channelId`           | Yes      | Watchline pull channel ID.                                                                                                                                      |
+| `apiBaseUrl`          | No       | Watchline API base URL. Defaults to production.                                                                                                                 |
+| `userId`              | No       | Stable user ID for MCP setup examples. Personal installs usually use `me`.                                                                                      |
+| `sessionKey`          | No       | Optional OpenClaw delivery session key override. Defaults to the main session, `agent:main:main`; use a full store key when targeting another explicit session. |
+| `pollIntervalSeconds` | No       | Delivery polling interval. Minimum is 5 seconds.                                                                                                                |
 
 ## Usage
 
@@ -120,9 +119,15 @@ openclaw watchline install-mcp
 
 ## Delivery Model
 
-Matched events are delivered through a pull channel. The plugin polls Watchline,
-passes each delivery into OpenClaw, and acknowledges the delivery only after
-OpenClaw accepts it.
+Matched events are delivered through a pull channel. The plugin polls Watchline
+and starts a targeted OpenClaw run for each pending delivery. By default,
+matched events run in the main OpenClaw session and OpenClaw delivers the result
+back to that session's channel. Set `sessionKey` only when you want to route
+deliveries to a different explicit session.
+
+The plugin acknowledges a Watchline delivery only after OpenClaw accepts the
+run. If OpenClaw rejects the run or is unavailable, the delivery remains
+unacknowledged so it can be retried on the next poll.
 
 Webhook delivery is available in Watchline for other agent harnesses, but this
 package uses pull delivery because it works with local OpenClaw instances

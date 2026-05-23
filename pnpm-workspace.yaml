@@ -1,0 +1,7 @@
+allowBuilds:
+  "@google/genai": false
+  koffi: false
+  openclaw: false
+  protobufjs: false
+  sharp: false
+  tree-sitter-bash: false

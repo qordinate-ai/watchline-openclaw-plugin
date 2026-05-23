@@ -1,13 +1,14 @@
 export interface WatchlineOpenClawConfig {
   apiKey: string;
   channelId: string;
-  sessionKey?: string;
+  sessionKey: string;
   apiBaseUrl?: string;
   userId: string;
   pollIntervalSeconds: number;
 }
 
 const DEFAULT_POLL_INTERVAL_SECONDS = 15;
+const DEFAULT_SESSION_KEY = "agent:main:main";
 const DEFAULT_USER_ID = "me";
 
 interface ConfigFields {
@@ -19,19 +20,16 @@ interface ConfigFields {
   pollIntervalSeconds: number;
 }
 
-export function normalizeConfig(
-  value: unknown,
-  options: { requireSessionKey?: boolean } = {},
-): WatchlineOpenClawConfig {
+export function normalizeConfig(value: unknown): WatchlineOpenClawConfig {
   const raw = isRecord(value) ? value : {};
   const config = readConfigFields(raw);
-  validateConfig(config, options);
+  validateConfig(config);
   return {
     apiKey: config.apiKey,
     channelId: config.channelId,
     pollIntervalSeconds: Math.max(5, Math.floor(config.pollIntervalSeconds)),
     ...(config.apiBaseUrl ? { apiBaseUrl: config.apiBaseUrl } : {}),
-    ...(config.sessionKey ? { sessionKey: config.sessionKey } : {}),
+    sessionKey: config.sessionKey ?? DEFAULT_SESSION_KEY,
     userId: config.userId ?? DEFAULT_USER_ID,
   };
 }
@@ -58,13 +56,9 @@ function optionalField<K extends keyof ConfigFields>(
 
 function validateConfig(
   config: ConfigFields,
-  options: { requireSessionKey?: boolean },
 ): asserts config is ConfigFields & { apiKey: string; channelId: string } {
   if (!config.apiKey) throw new Error("Watchline apiKey is required.");
   if (!config.channelId) throw new Error("Watchline channelId is required.");
-  if (options.requireSessionKey && !config.sessionKey) {
-    throw new Error("Watchline sessionKey is required.");
-  }
 }
 
 export function tryNormalizeConfig(
@@ -75,7 +69,7 @@ export function tryNormalizeConfig(
   try {
     return {
       ok: true,
-      config: normalizeConfig(value, { requireSessionKey: true }),
+      config: normalizeConfig(value),
     };
   } catch (error) {
     return {

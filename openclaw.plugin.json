@@ -1,5 +1,8 @@
 {
   "id": "watchline",
+  "activation": {
+    "onStartup": true
+  },
   "name": "Watchline",
   "description": "Deliver matched Watchline events into OpenClaw from a local pull channel.",
   "configSchema": {
@@ -16,7 +19,7 @@
       },
       "sessionKey": {
         "type": "string",
-        "description": "OpenClaw session key to receive proactive Watchline events."
+        "description": "Optional OpenClaw session key override for proactive Watchline events. Defaults to the main session."
       },
       "apiBaseUrl": {
         "type": "string",

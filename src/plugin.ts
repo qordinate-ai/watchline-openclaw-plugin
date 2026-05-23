@@ -2,6 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import {
+  buildJsonPluginConfigSchema,
+  definePluginEntry,
+  type OpenClawPluginApi,
+  type OpenClawPluginService,
+} from "openclaw/plugin-sdk/plugin-entry";
+
 import { tryNormalizeConfig } from "./config.js";
 import type { WatchlineOpenClawConfig } from "./config.js";
 import {
@@ -10,65 +17,53 @@ import {
   pollDeliveriesOnce,
 } from "./delivery.js";
 import type { DeliveryTarget } from "./delivery.js";
-import {
-  deliveryMetadata,
-  type OpenClawPluginApiLike,
-  type OpenClawService,
-} from "./openclaw-types.js";
 
-const configSchema = {
-  parse: (value: unknown) => (isRecord(value) ? value : {}),
-  validate: (value: unknown) =>
-    isRecord(value)
-      ? { ok: true, value }
-      : { ok: false, errors: ["Watchline config must be an object."] },
-  jsonSchema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      apiKey: {
-        type: "string",
-        description: "Watchline project API key.",
-      },
-      channelId: {
-        type: "string",
-        description: "Watchline pull channel ID.",
-      },
-      sessionKey: {
-        type: "string",
-        description:
-          "OpenClaw session key to receive proactive Watchline events.",
-      },
-      apiBaseUrl: {
-        type: "string",
-        description: "Watchline API base URL.",
-      },
-      userId: {
-        type: "string",
-        description: "Default Watchline user_id for personal OpenClaw watches.",
-      },
-      pollIntervalSeconds: {
-        type: "number",
-        description: "Seconds between pull-delivery polls.",
-      },
+const configSchema = buildJsonPluginConfigSchema({
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    apiKey: {
+      type: "string",
+      description: "Watchline project API key.",
+    },
+    channelId: {
+      type: "string",
+      description: "Watchline pull channel ID.",
+    },
+    sessionKey: {
+      type: "string",
+      description:
+        "Optional OpenClaw session key override for proactive Watchline events. Defaults to the main session.",
+    },
+    apiBaseUrl: {
+      type: "string",
+      description: "Watchline API base URL.",
+    },
+    userId: {
+      type: "string",
+      description: "Default Watchline user_id for personal OpenClaw watches.",
+    },
+    pollIntervalSeconds: {
+      type: "number",
+      description: "Seconds between pull-delivery polls.",
     },
   },
-};
+});
 
-const watchlinePlugin = {
+const watchlinePlugin = definePluginEntry({
   id: "watchline",
   name: "Watchline",
   description:
     "Deliver matched Watchline events into OpenClaw from a local pull channel.",
   configSchema,
-  register(api: OpenClawPluginApiLike) {
+  register(api) {
     registerCli(api);
-    api.registerService?.(createDeliveryService(api));
+    api.registerService(createDeliveryService(api));
     api.logger.info("[watchline] plugin loaded.");
   },
-};
+});
 
-function createDeliveryService(api: OpenClawPluginApiLike): OpenClawService {
+function createDeliveryService(api: OpenClawPluginApi): OpenClawPluginService {
   let timeout: NodeJS.Timeout | undefined;
   let stopped = false;
 
@@ -76,22 +71,15 @@ function createDeliveryService(api: OpenClawPluginApiLike): OpenClawService {
     id: "watchline-delivery",
     start(ctx) {
       stopped = false;
-      const configResult = tryNormalizeConfig(api.pluginConfig ?? ctx.config);
+      const configResult = tryNormalizeConfig(api.pluginConfig);
       if (!configResult.ok) {
         ctx.logger.warn(`[watchline] delivery disabled: ${configResult.error}`);
         return;
       }
 
       const config = configResult.config;
-      if (!config.sessionKey) {
-        ctx.logger.warn(
-          "[watchline] delivery disabled: sessionKey is required.",
-        );
-        return;
-      }
-      const deliveryConfig = { ...config, sessionKey: config.sessionKey };
       const client = createWatchlineClient(config);
-      const target = createOpenClawDeliveryTarget(api, deliveryConfig);
+      const target = createOpenClawDeliveryTarget(api, config);
 
       const tick = async (): Promise<void> => {
         if (stopped) return;
@@ -134,41 +122,24 @@ function createDeliveryService(api: OpenClawPluginApiLike): OpenClawService {
 }
 
 function createOpenClawDeliveryTarget(
-  api: OpenClawPluginApiLike,
-  config: WatchlineOpenClawConfig & { sessionKey: string },
+  api: OpenClawPluginApi,
+  config: WatchlineOpenClawConfig,
 ): DeliveryTarget {
   return {
     deliver: async (delivery, text) => {
-      if (api.runtime?.subagent?.run) {
-        await api.runtime.subagent.run({
-          sessionKey: config.sessionKey,
-          message: text,
-          deliver: true,
-          idempotencyKey: delivery.delivery_id,
-          lane: "watchline-delivery",
-        });
-        return;
-      }
-
-      if (api.enqueueNextTurnInjection) {
-        await api.enqueueNextTurnInjection({
-          sessionKey: config.sessionKey,
-          text,
-          idempotencyKey: delivery.delivery_id,
-          placement: "append_context",
-          ttlMs: 10 * 60 * 1000,
-          metadata: deliveryMetadata(delivery),
-        });
-        return;
-      }
-
-      throw new Error("OpenClaw delivery runtime is unavailable.");
+      await api.runtime.subagent.run({
+        sessionKey: config.sessionKey,
+        message: text,
+        deliver: true,
+        idempotencyKey: delivery.delivery_id,
+        lane: "watchline-delivery",
+      });
     },
   };
 }
 
-function registerCli(api: OpenClawPluginApiLike): void {
-  api.registerCli?.(
+function registerCli(api: OpenClawPluginApi): void {
+  api.registerCli(
     ({ program }) => {
       const command = asCommander(program)
         .command("watchline")
@@ -186,7 +157,7 @@ function registerCli(api: OpenClawPluginApiLike): void {
           console.log("Watchline is configured.");
           console.log(`  channelId: ${result.config.channelId}`);
           console.log(`  userId:    ${result.config.userId}`);
-          console.log(`  sessionKey: ${result.config.sessionKey ?? ""}`);
+          console.log(`  sessionKey: ${result.config.sessionKey}`);
           console.log("");
           console.log("Hosted MCP command for watch tools:");
           console.log(mcpSetCommand(result.config));
